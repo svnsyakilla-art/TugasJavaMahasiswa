@@ -1,103 +1,149 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package database;
 
-import java.sql.Connection;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
 import java.sql.*;
 import java.util.*;
 
-/**
- *
- * @author Ahmad Yusuf
- */
 public class Mahasiswa {
-    int id;
-    String nim;
-    String nama;
-    
-    int tahunMasuk;
-    Connection con;
-    
-    public Mahasiswa() {}
-    
-    Mahasiswa(int id, String nim, String nama, int tahunMasuk){
+
+    public int id;
+    public String nim;
+    public String nama;
+    public int tahunMasuk;
+
+    public Mahasiswa(int id, String nama, String nim, int tahunMasuk) {
         this.id = id;
         this.nama = nama;
         this.nim = nim;
         this.tahunMasuk = tahunMasuk;
-        
-        con = DbConnection.connect();
     }
-    
-    Mahasiswa(String nim, String nama, int tahunMasuk){
+
+    // Constructor untuk insert baru
+    public Mahasiswa(String nama, String nim, int tahunMasuk) {
         this.nama = nama;
         this.nim = nim;
         this.tahunMasuk = tahunMasuk;
     }
+
+    // Getter
     public int getId() { return id; }
-    public String getNim() { return nim; }
     public String getNama() { return nama; }
+    public String getNim() { return nim; }
     public int getTahunMasuk() { return tahunMasuk; }
-    
+
+    // INSERT DATA
     public boolean insert() {
-        try (Connection con = DbConnection.connect()) {
-            String sql = "INSERT INTO mahasiswa (nim, nama) VALUES (?, ?)";
-            PreparedStatement pst = con.prepareStatement(sql);
-            pst.setString(1, this.nim);
-            pst.setString(2, this.nama);
-            pst.executeUpdate();
+        String sql = "INSERT INTO mahasiswa (nama, nim) VALUES (?, ?)";
+        try (Connection con = DbConnection.connect();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+
+            ps.setString(1, this.nama);
+            ps.setString(2, this.nim);
+            ps.executeUpdate();
             return true;
-        } catch (Exception e) {
+
+        } catch (SQLException e) {
             e.printStackTrace();
             return false;
         }
     }
-        public static List<Mahasiswa> getAll() {
+
+    // SELECT ALL
+    public static List<Mahasiswa> getAll() {
         List<Mahasiswa> list = new ArrayList<>();
-        try (Connection con = DbConnection.connect()) {
-            String sql = "SELECT * FROM mahasiswa ORDER BY id ASC";
-            Statement st = con.createStatement();
-            ResultSet rs = st.executeQuery(sql);
+
+        String sql = "SELECT * FROM mahasiswa ORDER BY id ASC";
+
+        try (Connection con = DbConnection.connect();
+             Statement st = con.createStatement();
+             ResultSet rs = st.executeQuery(sql)) {
+
             while (rs.next()) {
                 Mahasiswa m = new Mahasiswa(
                     rs.getInt("id"),
-                    rs.getString("nim"),
                     rs.getString("nama"),
+                    rs.getString("nim"),
                     0
                 );
                 list.add(m);
             }
-        } catch (Exception e) {
+
+        } catch (SQLException e) {
             e.printStackTrace();
         }
+
         return list;
     }
-          public boolean update(int id) {
-        try (Connection con = DbConnection.connect()) {
-            String sql = "UPDATE mahasiswa SET nim=?, nama=? WHERE id=?";
-            PreparedStatement pst = con.prepareStatement(sql);
-            pst.setString(1, this.nim);
-            pst.setString(2, this.nama);
+
+    // UPDATE
+    public boolean update(int id) {
+        String sql = "UPDATE mahasiswa SET nama=?, nim=? WHERE id=?";
+
+        try (Connection con = DbConnection.connect();
+             PreparedStatement pst = con.prepareStatement(sql)) {
+
+            pst.setString(1, this.nama);
+            pst.setString(2, this.nim);
             pst.setInt(3, id);
+
             pst.executeUpdate();
             return true;
-        } catch (Exception e) {
+
+        } catch (SQLException e) {
             e.printStackTrace();
             return false;
         }
     }
-           public static boolean delete(int id) {
-        try (Connection con = DbConnection.connect()) {
-            String sql = "DELETE FROM mahasiswa WHERE id=?";
-            PreparedStatement pst = con.prepareStatement(sql);
+
+    // DELETE
+    public static boolean delete(int id) {
+        String sql = "DELETE FROM mahasiswa WHERE id=?";
+
+        try (Connection con = DbConnection.connect();
+             PreparedStatement pst = con.prepareStatement(sql)) {
+
             pst.setInt(1, id);
             pst.executeUpdate();
             return true;
-        } catch (Exception e) {
+
+        } catch (SQLException e) {
             e.printStackTrace();
             return false;
-        }   
-    }      
+        }
+    }
+
+   
+    // UPLOAD CSV
+    public static void uploadCSV(File file) throws Exception {
+        String sql = "INSERT INTO mahasiswa (nama, nim) VALUES (?, ?)";
+
+        try (BufferedReader br = new BufferedReader(new FileReader(file));
+             Connection con = DbConnection.connect();
+             PreparedStatement pst = con.prepareStatement(sql)) {
+
+            // skip header
+            br.readLine();
+
+            String line;
+            while ((line = br.readLine()) != null) {
+                String[] data = line.split(",");
+
+                if (data.length >= 2) {
+                    String nama = data[0].trim();
+                    String nim  = data[1].trim();
+
+                    pst.setString(1, nama);
+                    pst.setString(2, nim);
+                    pst.addBatch();
+                }
+            }
+
+            pst.executeBatch();
+
+        } catch (Exception e) {
+            throw new Exception("Gagal upload CSV: " + e.getMessage());
+        }
+    }
 }
